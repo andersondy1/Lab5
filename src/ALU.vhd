@@ -24,7 +24,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx leaf cells in this code.
@@ -41,7 +41,15 @@ end ALU;
 
 architecture Behavioral of ALU is
 
+signal f_result : std_logic_vector(7 downto 0);
+
 begin
 
+f_result <= (i_A or i_B) when i_op = "011" else
+            (i_A and i_B) when i_op = "010" else
+            std_logic_vector(signed(i_A) + signed(i_B)) when (i_op = "000") else
+            std_logic_vector(signed(i_A) - signed(i_B)) when (i_op = "001");
+
+o_flags <= "0000";
 
 end Behavioral;
