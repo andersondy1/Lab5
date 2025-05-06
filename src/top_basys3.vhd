@@ -32,7 +32,6 @@ entity top_basys3 is
         sw      :   in std_logic_vector(7 downto 0); -- operands and opcode
         btnU    :   in std_logic; -- reset
         btnC    :   in std_logic; -- fsm cycle
-        btnL    :   in std_logic;
         
         -- outputs
         led :   out std_logic_vector(15 downto 0);
@@ -50,7 +49,6 @@ component controller_fsm is
     port (
         i_reset : in STD_LOGIC;
         i_adv : in STD_LOGIC;
-        i_clk : in std_logic;
         o_cycle : out STD_LOGIC_VECTOR (3 downto 0)
         );
       
@@ -103,43 +101,48 @@ component sevenseg_decoder is
 end component sevenseg_decoder;
         
 -- signals
-signal w_reset_master : std_logic;
 
-signal w_cycle : std_logic_vector(3 downto 0);
+
+signal w_cycle : std_logic_vector(3 downto 0):= "1111";
 signal w_clkdiv_reset : std_logic;
 
 signal w_clkdivout : std_logic;
 
-signal w_A : std_logic_vector(7 downto 0);
-signal w_B : std_logic_vector(7 downto 0);
+signal w_A : std_logic_vector(7 downto 0):="11111111";
+signal w_B : std_logic_vector(7 downto 0):="11111111";
 
-signal w_result : std_logic_vector(7 downto 0);
+signal w_result : std_logic_vector(7 downto 0):="11111111";
 
-signal w_flags : std_logic_vector(3 downto 0);
+signal w_flags : std_logic_vector(3 downto 0):= "1111";
 
-signal w_mux : std_logic_vector(7 downto 0);
+signal w_mux : std_logic_vector(7 downto 0):= "11111111";
 
-signal w_hund : std_logic_vector(3 downto 0);
-signal w_tens : std_logic_vector(3 downto 0);
-signal w_ones : std_logic_vector(3 downto 0);
+signal w_hund : std_logic_vector(3 downto 0):= "1111";
+signal w_tens : std_logic_vector(3 downto 0):= "1111";
+signal w_ones : std_logic_vector(3 downto 0):= "1111";
 
-signal w_sign : std_logic_vector(3 downto 0);
+signal w_sign : std_logic_vector(3 downto 0):= "1111";
 
-signal w_data : std_logic_vector(3 downto 0);
+signal w_sign_bit : std_logic:='1';
 
-signal w_seltdm : std_logic_vector(3 downto 0);
+signal w_data : std_logic_vector(3 downto 0):= "1111";
 
-signal w_seg : std_logic_vector(6 downto 0);
+signal w_seltdm : std_logic_vector(3 downto 0):= "1111";
 
-signal w_BtnC : std_logic;
+signal w_sel: std_logic_vector(3 downto 0):= "1111";
+signal w_seg, w_seg_sign : std_logic_vector(6 downto 0):= "1111111";
 
 
 begin
 	-- PORT MAPS ----------------------------------------
 
-w_clkdiv_reset <= BtnL or BtnU;
-w_BtnC <= BtnC;
+w_clkdiv_reset <= BtnU;
 
+
+--blanks the screen
+with w_cycle select
+    an <= "1111" when "0001",
+          w_sel when others;
 clock_divider_inst : clock_divider
 generic map(
 	k_DIV => 50000
@@ -152,25 +155,22 @@ port map(
     
 controller_fsm_inst : controller_fsm
 port map(
-    i_reset => BtnU,
+    i_reset => w_clkdiv_reset,
     i_adv => BtnC,
-    i_clk => w_clkdivout,
     o_cycle => w_cycle
     );
     
 ALU_inst : ALU
 port map(
-    --i_A => w_A,
-    i_A => "00000101",
-    i_B => "00000011", -- w_B
-    i_op => "000", --sw(2 downto 0)
+    i_A => w_A,
+    i_B => w_B,
+    i_op => sw(2 downto 0),
     o_result => w_result,
     o_flags => led(15 downto 12)
     );
     
 with w_cycle select
-    w_mux <= "00000000" when "0001",
-             w_A when "0010",
+    w_mux <= w_A when "0010",
              w_B when "0100",
              w_result when "1000",
              "00000000" when others;
@@ -178,7 +178,7 @@ with w_cycle select
 twos_comp_inst : twos_comp
 port map(
     i_bin => w_mux,
-    --o_sign => 
+    o_sign => w_sign_bit,
     o_hund => w_hund,
     o_tens => w_tens,
     o_ones => w_ones
@@ -191,7 +191,7 @@ port map(
     i_D1 => w_tens,  
     i_D0 => w_ones,
     o_data => w_data,
-    o_sel => an(3 downto 0),
+    o_sel => w_sel,
     i_clk => w_clkdivout,
     i_reset => w_clkdiv_reset
     );        
@@ -199,14 +199,22 @@ port map(
 decoder_inst : sevenseg_decoder
 port map( 
     i_hex => w_data,
-    o_seg_n => seg(6 downto 0)
+    o_seg_n => w_seg
     ); 
+    
 	-- CONCURRENT STATEMENTS ----------------------------
-	
-process(clk)
+	with w_sign_bit select
+	   w_seg_sign <= "1111111" when '0',
+	            "0111111" when others;
+
+    with w_sel select 
+       seg <= w_seg_sign when "0111",
+              w_seg when others;
+
+process(w_clkdivout)
 begin
-    if rising_edge(clk) then
-        if w_BtnC = '1' then
+    if rising_edge(w_clkdivout) then
+        if BtnC = '1' then
             if w_cycle = "0010" then
                 w_A <= sw(7 downto 0);
             elsif w_cycle = "0100" then
@@ -214,6 +222,7 @@ begin
             end if;    
         end if;
     end if;
-end process; 
+end process;
+led(11 downto 0) <= (others => '0');
 
 end top_basys3_arch;

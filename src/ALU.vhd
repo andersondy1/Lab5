@@ -51,5 +51,6 @@ f_result <= (i_A or i_B) when i_op = "011" else
             std_logic_vector(signed(i_A) - signed(i_B)) when (i_op = "001");
 
 o_flags <= "0000";
+o_result <= f_result;
 
 end Behavioral;
